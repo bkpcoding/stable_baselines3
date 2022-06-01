@@ -688,7 +688,7 @@ class ActorCriticCnnPolicy(ActorCriticPolicy):
     :param sde_net_arch: Network architecture for extracting features
         when using gSDE. If None, the latent features from the policy will be used.
         Pass an empty list to use the states as features.
-    :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure
+    :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure/en/master/modules/td3.html
         a positive standard deviation (cf paper). It allows to keep variance
         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
     :param squash_output: Whether to squash the output using a tanh function,

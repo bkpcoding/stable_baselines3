@@ -19,6 +19,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Rollout
 from stable_baselines3.common.utils import safe_mean, should_collect_more_steps
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.her_replay_buffer import HerReplayBuffer
+import exputils.data.logging as log
 
 
 class OffPolicyAlgorithm(BaseAlgorithm):
@@ -142,6 +143,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
             self.policy_kwargs["use_sde"] = self.use_sde
         # For gSDE only
         self.use_sde_at_warmup = use_sde_at_warmup
+        log.activate_tensorboard()
 
     def _convert_train_freq(self) -> None:
         """
@@ -431,6 +433,8 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
             self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
             self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+            log.add_scalar("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]), tb_global_step=self.num_timesteps)
+            log.add_scalar("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]), tb_global_step= self.num_timesteps)
         self.logger.record("time/fps", fps)
         self.logger.record("time/time_elapsed", int(time_elapsed), exclude="tensorboard")
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
@@ -439,6 +443,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
         if len(self.ep_success_buffer) > 0:
             self.logger.record("rollout/success_rate", safe_mean(self.ep_success_buffer))
+            log.add_scalar("rollout/success_rate", safe_mean(self.ep_success_buffer), tb_global_step=self.num_timesteps)
         # Pass the number of timesteps for tensorboard
         self.logger.dump(step=self.num_timesteps)
 

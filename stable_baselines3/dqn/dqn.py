@@ -13,6 +13,7 @@ from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
 from stable_baselines3.dqn.policies import CnnPolicy, DQNPolicy, MlpPolicy, MultiInputPolicy
+import exputils.data.logging as log
 
 
 class DQN(OffPolicyAlgorithm):
@@ -71,7 +72,7 @@ class DQN(OffPolicyAlgorithm):
         policy: Union[str, Type[DQNPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 1e-4,
-        buffer_size: int = 1_000_000,  # 1e6
+        buffer_size: int = 1000000,  # 1e6
         learning_starts: int = 50000,
         batch_size: int = 32,
         tau: float = 1.0,
@@ -134,6 +135,7 @@ class DQN(OffPolicyAlgorithm):
         self.exploration_schedule = None
         self.q_net, self.q_net_target = None, None
 
+        log.activate_tensorboard()
         if _init_setup_model:
             self._setup_model()
 
@@ -173,6 +175,7 @@ class DQN(OffPolicyAlgorithm):
 
         self.exploration_rate = self.exploration_schedule(self._current_progress_remaining)
         self.logger.record("rollout/exploration_rate", self.exploration_rate)
+        log.add_scalar("exploration_rate", self.exploration_rate, tb_global_step=self._n_calls)
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Switch to train mode (this affects batch norm / dropout)
@@ -217,6 +220,7 @@ class DQN(OffPolicyAlgorithm):
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/loss", np.mean(losses))
+        log.add_scalar("train/loss", np.mean(losses), tb_global_step=self._n_updates)
 
     def predict(
         self,

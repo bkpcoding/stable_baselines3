@@ -1,0 +1,25 @@
+torch
+
+faiss-cpu
+
+gym==0.21.0
+jupyter-client
+numpy
+pandas
+pillow
+plotly
+Box2D
+Box2D-kengz
+box2d-py
+scipy
+tensorboard
+torchvision
+tqdm
+tk
+opencv-python
+wandb
+torchinfo
+ipywidgets
+qgrid
+tabulate
+gym[atari, accept-rom-license]
