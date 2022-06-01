@@ -5,6 +5,7 @@ import gym
 import numpy as np
 import torch as th
 from torch.nn import functional as F
+import exputils as eu
 
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
@@ -72,7 +73,7 @@ class DQN(OffPolicyAlgorithm):
         policy: Union[str, Type[DQNPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 1e-4,
-        buffer_size: int = 1000000,  # 1e6
+        buffer_size: int = 1_000_000,  # 1e6
         learning_starts: int = 50000,
         batch_size: int = 32,
         tau: float = 1.0,
@@ -94,6 +95,7 @@ class DQN(OffPolicyAlgorithm):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
+        config: eu.AttrDict = None,
     ):
 
         super().__init__(
@@ -120,6 +122,7 @@ class DQN(OffPolicyAlgorithm):
             optimize_memory_usage=optimize_memory_usage,
             supported_action_spaces=(gym.spaces.Discrete,),
             support_multi_env=True,
+            config = config,
         )
 
         self.exploration_initial_eps = exploration_initial_eps

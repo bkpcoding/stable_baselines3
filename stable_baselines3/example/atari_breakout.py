@@ -18,7 +18,7 @@ def default_config():
         lr = 0.00025,
         rbf_on = False,
         rbf = eu.AttrDict(
-            n_neurons_per_input = 7,
+            n_neurons_per_input = 5,
             ranges = [-1.0, 1.0],
             sigma = None,
             is_trainable = True,		
@@ -29,11 +29,10 @@ def run(config = None, **kwargs):
     env = make_atari_env('ALE/Breakout-v5', n_envs=8, seed=0)
     # Frame-stacking with 4 frames
     env = VecFrameStack(env, n_stack=4)
-    model = DQN('CnnPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_breakout", optimize_memory_usage= True)
+    model = DQN('CnnPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_breakout", optimize_memory_usage= True, config = config.rbf)
     model.learn(total_timesteps=2_500_000, tb_log_name="atari_breakout")
     model.save("atari_breakout")
     mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10, deterministic= True)
     log.add_scalar("mean_reward", mean_reward)
     log.add_scalar("std_reward", std_reward)
     log.save()
-    
