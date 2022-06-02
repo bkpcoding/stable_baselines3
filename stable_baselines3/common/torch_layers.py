@@ -10,6 +10,7 @@ import collections
 import numpy as np
 from torch.distributions.multivariate_normal import MultivariateNormal
 from torch import Tensor
+from zmq import device
 
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim, is_image_space
 from stable_baselines3.common.type_aliases import TensorDict
@@ -92,8 +93,6 @@ class NatureCNN(BaseFeaturesExtractor):
         # Compute shape by doing one forward pass
         with th.no_grad():
             n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
-
-        print("hey gonna use rbf layer excited")
 
         self.linear = nn.Sequential(nn.Linear(n_flatten, 32), nn.ReLU(),
                                     RBFLayer(32, 160),
@@ -328,7 +327,6 @@ def get_actor_critic_arch(net_arch: Union[List[int], Dict[str, List[int]]]) -> T
     return actor_arch, critic_arch
 
 
-
 class RBFLayer(torch.nn.Module):
     """RBF layer that has for each input dimension n RBF neurons.
 
@@ -377,9 +375,9 @@ class RBFLayer(torch.nn.Module):
     def default_config():
         return eu.AttrDict(
             n_neurons_per_input=None,
-            ranges= [-5.0, 5.0],
+            ranges=[-3.0, 3.0],
             sigma=None,
-            is_trainable=False,
+            is_trainable=True,
         )
 
 
@@ -398,6 +396,7 @@ class RBFLayer(torch.nn.Module):
     def n_neurons_per_input(self):
         return self._n_neurons_per_input
 
+
     @property
     def n_out(self):
         return self._n_out
@@ -413,8 +412,8 @@ class RBFLayer(torch.nn.Module):
         self.config = eu.combine_dicts(argv, config, self.default_config())
 
         self._n_in = n_in
-        self.range = self.config.ranges
-        self.device = torch.device("cuda0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        
 
         # identify self._n_neurons_per_input
         n_neurons_per_input_according_to_n_out = None
@@ -429,7 +428,6 @@ class RBFLayer(torch.nn.Module):
         if self.config.n_neurons_per_input is not None:
             n_neurons_per_input_according_to_config = self.config.n_neurons_per_input
             self._n_neurons_per_input = n_neurons_per_input_according_to_config
-            print("set n nuerons per input to : ", self._n_neurons_per_input)
         if n_neurons_per_input_according_to_n_out is not None and n_neurons_per_input_according_to_config is not None:
             if n_neurons_per_input_according_to_n_out != n_neurons_per_input_according_to_config:
                 raise ValueError('Number of RBF neurons must be consistent in between config.n_neurons_per_input and n_out!')
@@ -437,10 +435,10 @@ class RBFLayer(torch.nn.Module):
 
         self._n_out = self._n_in * self.n_neurons_per_input
 
-        if self.range is None:
+        if self.config.ranges is None:
             self.ranges = np.array([[-1.0, 1.0]] * self._n_in)
-        elif np.ndim(self.range) == 1:
-            self.ranges = np.array([self.range] * self._n_in)
+        elif np.ndim(self.config.ranges) == 1:
+            self.ranges = np.array([self.config.ranges] * self._n_in)
         else:
             self.ranges = np.array(self.config.ranges)
 
@@ -448,7 +446,7 @@ class RBFLayer(torch.nn.Module):
         for input_idx in range(self._n_in):
             start_idx = input_idx * self._n_neurons_per_input
             end_idx = start_idx + self._n_neurons_per_input
-            self.peaks[start_idx:end_idx] = torch.linspace(self.ranges[input_idx][0], self.ranges[input_idx][1], self._n_neurons_per_input, device= self.device)
+            self.peaks[start_idx:end_idx] = torch.linspace(self.ranges[input_idx][0], self.ranges[input_idx][1], self._n_neurons_per_input)
 
         # handle different types of sigma parameters and convert them to a list with one sigma per input
         if self.config.sigma is None:
@@ -461,11 +459,12 @@ class RBFLayer(torch.nn.Module):
         else:
             self.sigma = self.config.sigma
 
-        self.sigmas = torch.Tensor(self.n_out, device= self.device)
+        self.sigmas = torch.Tensor(self.n_out)
         for input_idx in range(self._n_in):
             start_idx = input_idx * self._n_neurons_per_input
             end_idx = start_idx + self._n_neurons_per_input
             self.sigmas[start_idx:end_idx] = self.sigma[input_idx]
+
         # if the layer should be trainable, then add the peaks and sigmas as parameters
         if self.config.is_trainable:
             self.peaks = torch.nn.Parameter(self.peaks)
@@ -482,15 +481,9 @@ class RBFLayer(torch.nn.Module):
 
         # reapeat input vector so that every map-neuron gets its accordingly input
         # example: n_neuron_per_inpu = 3 then [[1,2,3]] --> [[1,1,1,2,2,2,3,3,3]]
-        x = x.repeat_interleave(repeats=self.n_neurons_per_input, dim=-1)
+        x = x.repeat_interleave(repeats=self.n_neurons_per_input, dim=1)
         # calculate gauss activation per map-neuron
         return torch.exp(-0.5 * ((x - self.peaks) / self.sigmas) ** 2)
-        #run time error: the size of tensor a (16) must match the size of tensor b(2) at non-singleton dimension(1)
-        #need to convert [1,2] to [16,2] 
-        #self.sigmas: [16, n_in*n_neurons_per_input]
-        #self.peaks: [16, n_in*n_neurons_per_input]
-        #maybe self.peaks.repeat_interleave(repeats = input[0], dims = 0)?
-        #[[1,2,3], [1,2,3]] -> []
 
 
 class My_RBF(nn.Module):
@@ -520,7 +513,7 @@ class NatureCNNRBF(BaseFeaturesExtractor):
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self,config, observation_space: gym.spaces.Box, features_dim: int = 512):
+    def __init__(self, observation_space: gym.spaces.Box,config, features_dim: int = 512):
         super().__init__(observation_space, features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
@@ -548,10 +541,10 @@ class NatureCNNRBF(BaseFeaturesExtractor):
         with th.no_grad():
             n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
 
-        self.linear = nn.Sequential(nn.Linear(n_flatten, 128),
+        self.linear = nn.Sequential(nn.Linear(n_flatten, 32),
             nn.ReLU(),
-            RBFLayer(128),
-            nn.Linear(128*self.config.n_neurons_per_input, features_dim),
+            RBFLayer(32, config = self.config),
+            nn.Linear(32*self.config.n_neurons_per_input, features_dim),
             nn.ReLU())
 
     def forward(self, observations: th.Tensor) -> th.Tensor:

@@ -11,6 +11,7 @@ import gym
 import numpy as np
 import torch as th
 from torch import nn
+import exputils as eu
 
 from stable_baselines3.common.distributions import (
     BernoulliDistribution,
@@ -29,6 +30,7 @@ from stable_baselines3.common.torch_layers import (
     MlpExtractor,
     NatureCNN,
     create_mlp,
+    NatureCNNRBF,
 )
 from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import get_device, is_vectorized_observation, obs_as_tensor
@@ -66,6 +68,7 @@ class BaseModel(nn.Module, ABC):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        config: eu.AttrDict = None,
     ):
         super().__init__()
 
@@ -86,6 +89,7 @@ class BaseModel(nn.Module, ABC):
 
         self.features_extractor_class = features_extractor_class
         self.features_extractor_kwargs = features_extractor_kwargs
+        self.config = config
 
     @abstractmethod
     def forward(self, *args, **kwargs):
@@ -115,7 +119,10 @@ class BaseModel(nn.Module, ABC):
 
     def make_features_extractor(self) -> BaseFeaturesExtractor:
         """Helper method to create a features extractor."""
-        return self.features_extractor_class(self.observation_space, **self.features_extractor_kwargs)
+        if self.features_extractor_class == NatureCNNRBF:
+            return NatureCNNRBF(self.observation_space, self.config, **self.features_extractor_kwargs)
+        else:
+            return self.features_extractor_class(self.observation_space, **self.features_extractor_kwargs)
 
     def extract_features(self, obs: th.Tensor) -> th.Tensor:
         """

@@ -13,10 +13,9 @@ from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
-from stable_baselines3.dqn.policies import CnnPolicy, DQNPolicy, MlpPolicy, MultiInputPolicy
+from stable_baselines3.dqn.policies import CnnPolicy, CnnRBFPolicy, DQNPolicy, MlpPolicy, MultiInputPolicy
 import exputils.data.logging as log
-
-
+from torchinfo import summary
 class DQN(OffPolicyAlgorithm):
     """
     Deep Q-Network (DQN)
@@ -66,6 +65,7 @@ class DQN(OffPolicyAlgorithm):
         "MlpPolicy": MlpPolicy,
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
+        "CNNRBFPolicy": CnnRBFPolicy,
     }
 
     def __init__(
@@ -137,6 +137,7 @@ class DQN(OffPolicyAlgorithm):
         # Linear schedule will be defined in `_setup_model()`
         self.exploration_schedule = None
         self.q_net, self.q_net_target = None, None
+        self.torchinfo = True
 
         log.activate_tensorboard()
         if _init_setup_model:
@@ -185,6 +186,9 @@ class DQN(OffPolicyAlgorithm):
         self.policy.set_training_mode(True)
         # Update learning rate according to schedule
         self._update_learning_rate(self.policy.optimizer)
+        #if self.torchinfo:
+        #    model_stats = summary(self.q_net, (self.replay_buffer.sample(1, env = self._vec_normalize_env)), verbose= 1)
+
 
         losses = []
         for _ in range(gradient_steps):
@@ -220,6 +224,7 @@ class DQN(OffPolicyAlgorithm):
 
         # Increase update counter
         self._n_updates += gradient_steps
+        
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/loss", np.mean(losses))

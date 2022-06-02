@@ -248,6 +248,7 @@ class CnnPolicy(DQNPolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        config = None,
     ):
         super().__init__(
             observation_space,
@@ -340,6 +341,7 @@ class DQNRBFPolicy(BasePolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        config: eu.AttrDict = None,
     ):
         super().__init__(
             observation_space,
@@ -348,6 +350,7 @@ class DQNRBFPolicy(BasePolicy):
             features_extractor_kwargs,
             optimizer_class=optimizer_class,
             optimizer_kwargs=optimizer_kwargs,
+            config = config,
         )
 
         if net_arch is None:
@@ -459,6 +462,7 @@ class CnnRBFPolicy(DQNRBFPolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        config: eu.AttrDict = None,
     ):
         super().__init__(
             observation_space,
@@ -471,6 +475,7 @@ class CnnRBFPolicy(DQNRBFPolicy):
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
+            config,
         )
 
 

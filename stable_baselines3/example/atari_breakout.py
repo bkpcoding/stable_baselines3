@@ -29,10 +29,14 @@ def run(config = None, **kwargs):
     env = make_atari_env('ALE/Breakout-v5', n_envs=8, seed=0)
     # Frame-stacking with 4 frames
     env = VecFrameStack(env, n_stack=4)
-    model = DQN('CnnPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_breakout", optimize_memory_usage= True, config = config.rbf)
+    if config.rbf_on:
+        model = DQN('CNNRBFPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_breakout_with_rbf", optimize_memory_usage= True, 
+                config = config.rbf)
+    else:
+        model = DQN('CnnPolicy', env, verbose = 1, learning_rate= config.lr, gamma = config.gamma, tensorboard_log = "./logs/atari_breakout_without_rbf", optimize_memory_usage= True, buffer_size= 100)
     model.learn(total_timesteps=2_500_000, tb_log_name="atari_breakout")
     model.save("atari_breakout")
-    mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10, deterministic= True)
+    mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=100, deterministic= True)
     log.add_scalar("mean_reward", mean_reward)
     log.add_scalar("std_reward", std_reward)
     log.save()

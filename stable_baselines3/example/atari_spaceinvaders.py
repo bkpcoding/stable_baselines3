@@ -29,7 +29,9 @@ def run(config = None, **kwargs):
     env = make_atari_env('ALE/SpaceInvaders-v5', n_envs=8, seed=0)
     # Frame-stacking with 4 frames
     env = VecFrameStack(env, n_stack=4)
-    model = DQN('CnnPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_spaceinvaders", optimize_memory_usage= True)
+    model = DQN('CNNRBFPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,
+                tensorboard_log= "./logs/atari_spaceinvaders", optimize_memory_usage= True,
+                config=config.rbf)
     model.learn(total_timesteps=2_500_000, tb_log_name="atari_spaceinvaders")
     model.save("atari_breakout")
     mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=10, deterministic= True)
