@@ -4,6 +4,7 @@ from stable_baselines3 import DQN
 from stable_baselines3.common.evaluation import evaluate_policy
 import exputils as eu
 import exputils.data.logging as log
+from torchinfo import summary
 
 # There already exists an environment generator
 # that will make and wrap atari environments correctly.
@@ -33,10 +34,16 @@ def run(config = None, **kwargs):
         model = DQN('CNNRBFPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_breakout_with_rbf", optimize_memory_usage= True, 
                 config = config.rbf)
     else:
-        model = DQN('CnnPolicy', env, verbose = 1, learning_rate= config.lr, gamma = config.gamma, tensorboard_log = "./logs/atari_breakout_without_rbf", optimize_memory_usage= True, buffer_size= 100)
+        model = DQN('CnnPolicy', env, verbose = 0, learning_rate= config.lr, gamma = config.gamma, tensorboard_log = "./logs/atari_breakout_without_rbf", optimize_memory_usage= True)
     model.learn(total_timesteps=2_500_000, tb_log_name="atari_breakout")
+    model_stats = summary(model.policy, input_size=(32, 4, 84, 84), col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
+    log.add_scalar("total number of parameters", model_stats.total_params)
+    log.add_scalar("total number of multiplications and additions", model_stats.total_mult_adds)
+    log.add_scalar("total number of trainable parameters", model_stats.trainable_params)
+
     model.save("atari_breakout")
     mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=100, deterministic= True)
     log.add_scalar("mean_reward", mean_reward)
     log.add_scalar("std_reward", std_reward)
     log.save()
+
