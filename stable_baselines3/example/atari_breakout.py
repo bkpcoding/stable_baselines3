@@ -28,20 +28,20 @@ def default_config():
 def run(config = None, **kwargs):
     config = eu.combine_dicts(kwargs, config, default_config())
     env = make_atari_env('ALE/Breakout-v5', n_envs=8, seed=0)
+    eu.activate_tensorboard()
     # Frame-stacking with 4 frames
     env = VecFrameStack(env, n_stack=4)
     if config.rbf_on:
         model = DQN('CNNRBFPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_breakout_with_rbf", optimize_memory_usage= True, 
                 config = config.rbf)
     else:
-        model = DQN('CnnPolicy', env, verbose = 0, learning_rate= config.lr, gamma = config.gamma, tensorboard_log = "./logs/atari_breakout_without_rbf", optimize_memory_usage= True)
-    model.learn(total_timesteps=2_500_000, tb_log_name="atari_breakout")
+        model = DQN('CnnPolicy', env, verbose = 0, learning_rate= config.lr, gamma = config.gamma, tensorboard_log = "./logs/atari_breakout_without_rbf", optimize_memory_usage= True)   
+    model.learn(total_timesteps=12_500_000, tb_log_name="atari_breakout")
     model_stats = summary(model.policy, input_size=(32, 4, 84, 84), col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
     log.add_scalar("total number of parameters", model_stats.total_params)
     log.add_scalar("total number of multiplications and additions", model_stats.total_mult_adds)
     log.add_scalar("total number of trainable parameters", model_stats.trainable_params)
-
-    model.save("atari_breakout")
+    log.save()
     mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=100, deterministic= True)
     log.add_scalar("mean_reward", mean_reward)
     log.add_scalar("std_reward", std_reward)

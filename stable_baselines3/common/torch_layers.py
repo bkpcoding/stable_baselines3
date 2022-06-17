@@ -94,7 +94,9 @@ class NatureCNN(BaseFeaturesExtractor):
         with th.no_grad():
             n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
 
-        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
+        self.linear = nn.Sequential(nn.Linear(n_flatten, 32), nn.ReLU(),
+                                    nn.Linear(32, 128), nn.ReLU(),
+                                    nn.Linear(128, features_dim), nn.ReLU())
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         return self.linear(self.cnn(observations))
@@ -410,7 +412,8 @@ class RBFLayer(torch.nn.Module):
 
         self._n_in = n_in
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        
+        self.min = 1e+6
+        self.max = -1e+6
 
         # identify self._n_neurons_per_input
         n_neurons_per_input_according_to_n_out = None
@@ -478,6 +481,14 @@ class RBFLayer(torch.nn.Module):
 
         # reapeat input vector so that every map-neuron gets its accordingly input
         # example: n_neuron_per_inpu = 3 then [[1,2,3]] --> [[1,1,1,2,2,2,3,3,3]]
+        #if x.min() < self.min:
+        #    self.min = x.min()
+        #    print(self.min, self.max)
+
+        #if x.max() > self.max:
+        #    self.max = x.max()
+        #    print(self.min, self.max)
+        
         x = x.repeat_interleave(repeats=self.n_neurons_per_input, dim=1)
         # calculate gauss activation per map-neuron
         return torch.exp(-0.5 * ((x - self.peaks) / self.sigmas) ** 2)
