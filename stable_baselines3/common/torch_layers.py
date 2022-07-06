@@ -89,6 +89,10 @@ class NatureCNN(BaseFeaturesExtractor):
             nn.ReLU(),
             nn.Flatten(),
         )
+        self.max = -1e6
+        self.min = 1e6
+        self.prev_max = -1e6
+        self.prev_min = 1e6
 
         # Compute shape by doing one forward pass
         with th.no_grad():
@@ -99,7 +103,17 @@ class NatureCNN(BaseFeaturesExtractor):
                                     nn.Linear(128, features_dim), nn.ReLU())
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
-        return self.linear(self.cnn(observations))
+        observations = self.cnn(observations)
+        #print the max and min according to the observations from cnn
+        self.max = max(self.max, observations.max().item())
+        self.min = min(self.min, observations.min().item())
+        if self.max != self.prev_max or self.min != self.prev_min:
+            print(f"max: {self.max}, min: {self.min}")
+            self.prev_max = self.max
+            self.prev_min = self.min
+
+        observations = self.linear(observations)
+        return observations
 
 
 def create_mlp(

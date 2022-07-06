@@ -95,6 +95,10 @@ From: ubuntu:latest
     apt_install time                    # Measures how much time a shell command takes to run
     apt_install libx11-dev              # Provides the X11 development headers and libraries
     apt_install libxext-dev             # Provides the X11 extension headers and libraries
+    apt_install ffmpeg                 # Video encoder/decoder
+    apt_install libsm6                  # Provides the shared memory libraries
+    apt_install libxext6                # Provides the X11 extension libraries
+    apt_install libgl1-mesa-glx        # Provides the OpenGL library
     
 
     ################
@@ -123,7 +127,7 @@ From: ubuntu:latest
     # Install some pip packages
     alias pip_install="python -m pip install"
 
-    pip_install -U pip setuptools
+    pip_install -U pip setuptools==59.5.0
 
     # >>> Here you can install your python packages
     # For example,
