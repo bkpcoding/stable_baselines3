@@ -32,12 +32,13 @@ def run(config = None, **kwargs):
     # Frame-stacking with 4 frames
     env = VecFrameStack(env, n_stack=4)
     if config.rbf_on:
-        model = DQN('CNNRBFPolicy', env, verbose=0, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_breakout_with_rbf", optimize_memory_usage= True, 
+        model = DQN('CNNRBFPolicy', env, verbose=1, learning_rate= config.lr, gamma= config.gamma,tensorboard_log= "./logs/atari_breakout_with_rbf", optimize_memory_usage= True, 
                 config = config.rbf)
     else:
         model = DQN('CnnPolicy', env, verbose = 0, learning_rate= config.lr, gamma = config.gamma, tensorboard_log = "./logs/atari_breakout_without_rbf", optimize_memory_usage= True)
-    model.learn(total_timesteps=12_500_000, tb_log_name="atari_breakout")
-    model_stats = summary(model.policy, input_size=(32, 4, 84, 84), col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
+    model.learn(total_timesteps=2_500_000, tb_log_name="atari_breakout")
+    model_stats = summary(model.policy, input_size=(32, 4, 84, 84), col_names=["kernel_size", "output_size", "num_params", "mult_adds"], depth= 5)
+    print(model_stats)
     log.add_scalar("total number of parameters", model_stats.total_params)
     log.add_scalar("total number of multiplications and additions", model_stats.total_mult_adds)
     log.add_scalar("total number of trainable parameters", model_stats.trainable_params)

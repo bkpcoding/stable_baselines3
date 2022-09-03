@@ -17,7 +17,7 @@ def default_config():
         epsilon = 1,
         eps_min = 0.01,
         lr = 0.00025,
-        rbf_on = False,
+        rbf_on = True,
         rbf = eu.AttrDict(
             n_neurons_per_input = 5,
             ranges = [-1.0, 1.0],
@@ -27,6 +27,7 @@ def default_config():
 )
 def run(config = None, **kwargs):
     config = eu.combine_dicts(kwargs, config, default_config())
+    eu.misc.seed(config.seed)
     env = make_atari_env('ALE/SpaceInvaders-v5', n_envs=8, seed=0)
     # Frame-stacking with 4 frames
     env = VecFrameStack(env, n_stack=4)
@@ -35,8 +36,9 @@ def run(config = None, **kwargs):
                 config = config.rbf)
     else:
         model = DQN('CnnPolicy', env, verbose = 0, learning_rate= config.lr, gamma = config.gamma, tensorboard_log = "./logs/atari_breakout_without_rbf", optimize_memory_usage= True)
-    model.learn(total_timesteps=12_500_000, tb_log_name="atari_breakout")
-    model_stats = summary(model.policy, input_size=(32, 4, 84, 84), col_names=["kernel_size", "output_size", "num_params", "mult_adds"])
+    model.learn(total_timesteps=2_500_000)
+    model_stats = summary(model.policy, input_size=(32, 4, 84, 84), col_names=["input_size", "kernel_size", "output_size", "num_params", "mult_adds"], depth = 5)
+    print(model_stats)
     log.add_scalar("total number of parameters", model_stats.total_params)
     log.add_scalar("total number of multiplications and additions", model_stats.total_mult_adds)
     log.add_scalar("total number of trainable parameters", model_stats.trainable_params)

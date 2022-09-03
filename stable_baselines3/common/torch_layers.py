@@ -115,13 +115,13 @@ class NatureCNN(BaseFeaturesExtractor):
         observations = self.linear(observations)
         return observations
 
-
 def create_mlp(
     input_dim: int,
     output_dim: int,
     net_arch: List[int],
     activation_fn: Type[nn.Module] = nn.ReLU,
     squash_output: bool = False,
+    config = None,
 ) -> List[nn.Module]:
     """
     Create a multi layer perceptron (MLP), which is
@@ -138,9 +138,19 @@ def create_mlp(
         activation function
     :return:
     """
-
+    if config == None or config.rbf_on == False or config.rbf_mlp == False:
+        pass
+    else:
+        modules = [RBFLayer(input_dim, config = config)]
     if len(net_arch) > 0:
-        modules = [nn.Linear(input_dim, net_arch[0]), activation_fn()]
+        if config != None and config.rbf_on == True:
+            modules = [nn.Linear(input_dim*config.n_neurons_per_input, net_arch[0]), activation_fn()]
+        elif config != None and config.rbf_on == False and config.rbf_mlp == False:
+            modules = [nn.Linear(input_dim, net_arch[0]), activation_fn()]
+        elif config != None and config.rbf_mlp == True:
+            modules = [RBFLayer(input_dim, config = config)]
+            modules.append(nn.Linear(input_dim* config.n_neurons_per_input, net_arch[0]))
+            modules.append(activation_fn())
     else:
         modules = []
 
@@ -154,6 +164,7 @@ def create_mlp(
     if squash_output:
         modules.append(nn.Tanh())
     return modules
+
 
 
 class MlpExtractor(nn.Module):
@@ -502,7 +513,7 @@ class RBFLayer(torch.nn.Module):
         #if x.max() > self.max:
         #    self.max = x.max()
         #    print(self.min, self.max)
-        
+
         x = x.repeat_interleave(repeats=self.n_neurons_per_input, dim=1)
         # calculate gauss activation per map-neuron
         return torch.exp(-0.5 * ((x - self.peaks) / self.sigmas) ** 2)
@@ -563,11 +574,12 @@ class NatureCNNRBF(BaseFeaturesExtractor):
         with th.no_grad():
             n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
 
-        self.linear = nn.Sequential(nn.Linear(n_flatten, 32),
+        self.linear = nn.Sequential(nn.Linear(n_flatten, 3),
             nn.ReLU(),
-            RBFLayer(32, config = self.config),
-            nn.Linear(32*self.config.n_neurons_per_input, features_dim),
+            RBFLayer(3, config = self.config),
+            nn.Linear(3*self.config.n_neurons_per_input, features_dim),
             nn.ReLU())
+        print(features_dim)
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         return self.linear(self.cnn(observations))
