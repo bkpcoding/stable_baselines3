@@ -22,7 +22,7 @@ class DQN(OffPolicyAlgorithm):
         "MlpPolicy": MlpPolicy,
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
-        "CNNRBFPolicy": CnnRBFPolicy,
+        "CnnRBFPolicy": CnnRBFPolicy,
     }
 
     def __init__(

@@ -55,8 +55,9 @@ class QNetwork(BasePolicy):
             features_extractor=features_extractor,
             normalize_images=normalize_images,
         )
-
-        if net_arch is None:
+        if config != None and config.net_arch != None:
+            net_arch = config.net_arch
+        elif net_arch is None:
             net_arch = [64, 64]
 
         self.net_arch = net_arch
@@ -143,6 +144,8 @@ class DQNPolicy(BasePolicy):
         if net_arch is None:
             if features_extractor_class == NatureCNN:
                 net_arch = []
+            elif config.net_arch != None:
+                net_arch = config.net_arch
             else:
                 net_arch = [64, 64]
 
@@ -386,6 +389,7 @@ class CnnPolicy(DQNPolicy):
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
+            config=config,
         )
 
 

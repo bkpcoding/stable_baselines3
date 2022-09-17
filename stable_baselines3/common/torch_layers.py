@@ -138,21 +138,22 @@ def create_mlp(
         activation function
     :return:
     """
-    if config == None or config.rbf_on == False or config.rbf_mlp == False:
-        pass
-    else:
-        modules = [RBFLayer(input_dim, config = config)]
     if len(net_arch) > 0:
         if config != None and config.rbf_on == True:
             modules = [nn.Linear(input_dim*config.n_neurons_per_input, net_arch[0]), activation_fn()]
-        elif config != None and config.rbf_on == False and config.rbf_mlp == False:
-            modules = [nn.Linear(input_dim, net_arch[0]), activation_fn()]
         elif config != None and config.rbf_mlp == True:
             modules = [RBFLayer(input_dim, config = config)]
             modules.append(nn.Linear(input_dim* config.n_neurons_per_input, net_arch[0]))
             modules.append(activation_fn())
+        elif config != None and config.mrbf_on == True:
+            modules = [MRBF(input_dim, input_dim * config.n_neurons_per_input)]
+            modules.append(nn.Linear(input_dim * config.n_neurons_per_input, net_arch[0]))
+            modules.append(activation_fn())
+        elif config != None and config.rbf_on == False and config.rbf_mlp == False and config.mrbf_on == False:
+            modules = [nn.Linear(input_dim, net_arch[0]), activation_fn()]
+
     else:
-        modules = []
+        modules = []    
 
     for idx in range(len(net_arch) - 1):
         modules.append(nn.Linear(net_arch[idx], net_arch[idx + 1]))
@@ -583,5 +584,50 @@ class NatureCNNRBF(BaseFeaturesExtractor):
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         return self.linear(self.cnn(observations))
+        
+        
+class MRBF(torch.nn.Module):
+    """
+    Transforms incoming data using a given radial basis function:
+    u_{i} = rbf(||x - c_{i}|| / s_{i})
+    Arguments:
+        in_features: size of each input sample
+        out_features: size of each output sample
+    Shape:
+        - Input: (N, in_features) where N is an arbitrary batch size
+        - Output: (N, out_features) where N is an arbitrary batch size
+    Attributes:
+        centres: the learnable centres of shape (out_features, in_features).
+            The values are initialised from a standard normal distribution.
+            Normalising inputs to have mean 0 and standard deviation 1 is
+            recommended.
+        
+        log_sigmas: logarithm of the learnable scaling factors of shape (out_features).
+            """
+
+    def __init__(self, in_features, out_features):
+        super(MRBF, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.centres = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.log_sigmas = nn.Parameter(torch.Tensor(out_features))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.normal_(self.centres, 0, 1)
+        nn.init.constant_(self.log_sigmas, 0)
+
+    def forward(self, input):
+        size = (input.size(0), self.out_features, self.in_features)
+        x = input.unsqueeze(1).expand(size)
+        c = self.centres.unsqueeze(0).expand(size)
+        #log_sigmas = self.log_sigmas.unsqueeze(0).expand(size)
+        distances = (x - c).pow(2).sum(-1).pow(0.5) / torch.exp(self.log_sigmas).unsqueeze(0)
+        #distances = ((x - c).pow(2) / torch.exp(log_sigmas).pow(2)).sum(-1).pow(0.5)
+        output = torch.exp(-1*distances.pow(2))
+        return output
+
+
+
 
 

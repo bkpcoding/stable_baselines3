@@ -435,7 +435,6 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
             self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
             self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
-            print("latest episode reward is: ", self.ep_info_buffer[-1]["r"])
             log.add_scalar("latest episode reward", self.ep_info_buffer[-1]["r"])
             log.add_scalar("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
             log.add_scalar("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
