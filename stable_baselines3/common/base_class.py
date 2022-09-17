@@ -422,7 +422,7 @@ class BaseAlgorithm(ABC):
         :param tb_log_name: the name of the run for tensorboard log
         :return:
         """
-        self.start_time = time.time()
+        self.start_time = time.time_ns()
 
         if self.ep_info_buffer is None or reset_num_timesteps:
             # Initialize buffers if they don't exist, or reinitialize if resetting counters
@@ -628,11 +628,11 @@ class BaseAlgorithm(ABC):
             attr = None
             try:
                 attr = recursive_getattr(self, name)
-            except Exception:
+            except Exception as e:
                 # What errors recursive_getattr could throw? KeyError, but
                 # possible something else too (e.g. if key is an int?).
                 # Catch anything for now.
-                raise ValueError(f"Key {name} is an invalid object name.")
+                raise ValueError(f"Key {name} is an invalid object name.") from e
 
             if isinstance(attr, th.optim.Optimizer):
                 # Optimizers do not support "strict" keyword...
