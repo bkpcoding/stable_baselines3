@@ -17,8 +17,6 @@ from stable_baselines3.dqn.policies import CnnPolicy, CnnRBFPolicy, DQNPolicy, M
 import exputils.data.logging as log
 from torchinfo import summary
 class DQN(OffPolicyAlgorithm):
-<<<<<<< HEAD
-=======
     """
     Deep Q-Network (DQN)
 
@@ -62,7 +60,6 @@ class DQN(OffPolicyAlgorithm):
         Setting it to auto, the code will be run on the GPU if possible.
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
->>>>>>> master
 
     policy_aliases: Dict[str, Type[BasePolicy]] = {
         "MlpPolicy": MlpPolicy,
