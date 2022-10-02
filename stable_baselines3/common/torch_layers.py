@@ -11,11 +11,12 @@ import numpy as np
 from torch.distributions.multivariate_normal import MultivariateNormal
 from torch import Tensor
 from zmq import device
+import torch.nn.functional as F
 
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim, is_image_space
 from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.utils import get_device
-
+import time
 
 class BaseFeaturesExtractor(nn.Module):
     """
@@ -67,7 +68,7 @@ class NatureCNN(BaseFeaturesExtractor):
         This corresponds to the number of unit for the last layer.
     """
 
-    def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 512):
+    def __init__(self, observation_space: gym.spaces.Box, config = None, features_dim: int = 512):
         super().__init__(observation_space, features_dim)
         # We assume CxHxW images (channels first)
         # Re-ordering will be done by pre-preprocessing or wrapper
@@ -97,10 +98,14 @@ class NatureCNN(BaseFeaturesExtractor):
         # Compute shape by doing one forward pass
         with th.no_grad():
             n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
-
-        self.linear = nn.Sequential(nn.Linear(n_flatten, 32), nn.ReLU(),
-                                    nn.Linear(32, 128), nn.ReLU(),
-                                    nn.Linear(128, features_dim), nn.ReLU())
+        if config != None and config.mrbf_on == True:
+            self.linear = nn.Sequential(nn.Linear(n_flatten, 32), nn.ReLU(),
+                                        MRBF(32, config.mrbf_units),
+                                        nn.Linear(config.mrbf_units, features_dim), nn.ReLU())
+        else:
+            self.linear = nn.Sequential(nn.Linear(n_flatten, 32), nn.ReLU(),
+                                        nn.Linear(32, 128), nn.ReLU(),
+                                        nn.Linear(128, features_dim), nn.ReLU())
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         observations = self.cnn(observations)
@@ -141,24 +146,30 @@ def create_mlp(
     if len(net_arch) > 0:
         if config != None and config.rbf_on == True:
             modules = [nn.Linear(input_dim*config.n_neurons_per_input, net_arch[0]), activation_fn()]
-        elif config != None and config.rbf_mlp == True:
+        elif config != None and config.rbf_mlp == True and config.sutton_maze == False:
             modules = [RBFLayer(input_dim, config = config)]
             modules.append(nn.Linear(input_dim* config.n_neurons_per_input, net_arch[0]))
             modules.append(activation_fn())
         elif config != None and config.mrbf_on == True:
-            modules = [MRBF(input_dim, input_dim * config.n_neurons_per_input)]
-            modules.append(nn.Linear(input_dim * config.n_neurons_per_input, net_arch[0]))
+            modules = [MRBF(input_dim, config.mrbf_units)]
+            modules.append(nn.Linear(config.mrbf_units, net_arch[0]))
             modules.append(activation_fn())
         elif config != None and config.rbf_on == False and config.rbf_mlp == False and config.mrbf_on == False:
+            modules = [nn.Linear(input_dim, net_arch[0]), activation_fn()]
+        else:
             modules = [nn.Linear(input_dim, net_arch[0]), activation_fn()]
 
     else:
         modules = []    
 
     for idx in range(len(net_arch) - 1):
-        modules.append(nn.Linear(net_arch[idx], net_arch[idx + 1]))
-        modules.append(activation_fn())
-
+        if config != None and config.sutton_maze == True and net_arch[idx] == config.latent_dim and config.rbf_mlp == True:
+            modules.append(RBFLayer(net_arch[idx], config = config))
+            modules.append(nn.Linear(net_arch[idx] * config.n_neurons_per_input, net_arch[idx + 1]))
+            modules.append(activation_fn())
+        else:
+            modules.append(nn.Linear(net_arch[idx], net_arch[idx + 1]))
+            modules.append(activation_fn())
     if output_dim > 0:
         last_layer_dim = net_arch[-1] if len(net_arch) > 0 else input_dim
         modules.append(nn.Linear(last_layer_dim, output_dim))
@@ -514,10 +525,10 @@ class RBFLayer(torch.nn.Module):
         #if x.max() > self.max:
         #    self.max = x.max()
         #    print(self.min, self.max)
-
         x = x.repeat_interleave(repeats=self.n_neurons_per_input, dim=1)
         # calculate gauss activation per map-neuron
-        return torch.exp(-0.5 * ((x - self.peaks) / self.sigmas) ** 2)
+        output =  torch.exp(-0.5 * ((x - self.peaks) / self.sigmas) ** 2)
+        return output
 
 
 class My_RBF(nn.Module):
@@ -575,15 +586,16 @@ class NatureCNNRBF(BaseFeaturesExtractor):
         with th.no_grad():
             n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
 
-        self.linear = nn.Sequential(nn.Linear(n_flatten, 3),
-            nn.ReLU(),
-            RBFLayer(3, config = self.config),
-            nn.Linear(3*self.config.n_neurons_per_input, features_dim),
-            nn.ReLU())
-        print(features_dim)
+        self.fc1 = nn.Linear(n_flatten, 32)
+        self.rbf = RBFLayer(32, config = self.config)
+        self.fc2 = nn.Linear(32*self.config.n_neurons_per_input, features_dim)
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
-        return self.linear(self.cnn(observations))
+        observations = self.cnn(observations)
+        observations = F.relu(self.fc1(observations))
+        observations = self.rbf(observations)
+        observations = F.relu(self.fc2(observations))
+        return observations
         
         
 class MRBF(torch.nn.Module):
@@ -619,11 +631,13 @@ class MRBF(torch.nn.Module):
 
     def forward(self, input):
         size = (input.size(0), self.out_features, self.in_features)
+        #print(input.shape, size)
         x = input.unsqueeze(1).expand(size)
         c = self.centres.unsqueeze(0).expand(size)
         #log_sigmas = self.log_sigmas.unsqueeze(0).expand(size)
         distances = (x - c).pow(2).sum(-1).pow(0.5) / torch.exp(self.log_sigmas).unsqueeze(0)
         #distances = ((x - c).pow(2) / torch.exp(log_sigmas).pow(2)).sum(-1).pow(0.5)
+        #
         output = torch.exp(-1*distances.pow(2))
         return output
 

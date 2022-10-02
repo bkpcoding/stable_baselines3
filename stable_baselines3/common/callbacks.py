@@ -9,6 +9,7 @@ import numpy as np
 from stable_baselines3.common import base_class  # pytype: disable=pyi-error
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, sync_envs_normalization
+import exputils.data.logging as log
 
 
 class BaseCallback(ABC):
@@ -430,6 +431,8 @@ class EvalCallback(EventCallback):
             # Add to current Logger
             self.logger.record("eval/mean_reward", float(mean_reward))
             self.logger.record("eval/mean_ep_length", mean_ep_length)
+            log.add_value("eval_mean_reward", float(mean_reward))
+            log.add_value("eval_mean_ep_length", mean_ep_length)
 
             if len(self._is_success_buffer) > 0:
                 success_rate = np.mean(self._is_success_buffer)
