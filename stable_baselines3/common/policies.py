@@ -121,6 +121,8 @@ class BaseModel(nn.Module, ABC):
         """Helper method to create a features extractor."""
         if self.features_extractor_class == NatureCNNRBF:
             return NatureCNNRBF(self.observation_space, self.config, **self.features_extractor_kwargs)
+        elif self.config.policy == "CNN":
+            return self.features_extractor_class(self.observation_space, **self.features_extractor_kwargs, config = self.config)
         else:
             return self.features_extractor_class(self.observation_space, **self.features_extractor_kwargs)
 

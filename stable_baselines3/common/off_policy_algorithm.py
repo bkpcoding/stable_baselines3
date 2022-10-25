@@ -1,3 +1,4 @@
+from collections import deque
 import io
 import pathlib
 import sys
@@ -136,6 +137,7 @@ class OffPolicyAlgorithm(BaseAlgorithm):
         self.replay_buffer_kwargs = replay_buffer_kwargs
         self._episode_storage = None
         self.config = config
+        self.reward_list = deque(maxlen = 1000)
 
         # Save train freq parameter, will be converted later to TrainFreq object
         self.train_freq = train_freq
@@ -585,9 +587,15 @@ class OffPolicyAlgorithm(BaseAlgorithm):
 
             # Rescale and perform action
             new_obs, rewards, dones, infos = env.step(actions)
+            self.reward_list.append(rewards[0])
 
             self.num_timesteps += env.num_envs
             num_collected_steps += 1
+
+            if self.num_timesteps % 1000 == 0:
+                log.add_scalar('reward_per_timestep', np.mean(self.reward_list))
+                print('reward_per_timestep', np.mean(self.reward_list))
+                self.reward_list.clear()
 
             # Give access to local variables
             callback.update_locals(locals())

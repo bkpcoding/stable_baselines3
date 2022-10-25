@@ -103,8 +103,8 @@ class NatureCNN(BaseFeaturesExtractor):
                                         MRBF(32, config.mrbf_units),
                                         nn.Linear(config.mrbf_units, features_dim), nn.ReLU())
         else:
-            self.linear = nn.Sequential(nn.Linear(n_flatten, 32), nn.ReLU(),
-                                        nn.Linear(32, 128), nn.ReLU(),
+            self.linear = nn.Sequential(nn.Linear(n_flatten, config.latent_dim), nn.ReLU(),
+                                        nn.Linear(config.latent_dim, 128), nn.ReLU(),
                                         nn.Linear(128, features_dim), nn.ReLU())
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
@@ -586,9 +586,9 @@ class NatureCNNRBF(BaseFeaturesExtractor):
         with th.no_grad():
             n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
 
-        self.fc1 = nn.Linear(n_flatten, 32)
-        self.rbf = RBFLayer(32, config = self.config)
-        self.fc2 = nn.Linear(32*self.config.n_neurons_per_input, features_dim)
+        self.fc1 = nn.Linear(n_flatten, config.latent_dim)
+        self.rbf = RBFLayer(config.latent_dim, config = self.config)
+        self.fc2 = nn.Linear(config.latent_dim*self.config.n_neurons_per_input, features_dim)
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         observations = self.cnn(observations)
